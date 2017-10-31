@@ -28,18 +28,20 @@ class ASExport():
 		self.aspace = ArchivesSpy.ASpace(self.asBaseURL, self.asSSLVerify, self.asRepository)
 		logging.basicConfig(filename=self.config.get('Logging', 'filename'), format=config.get('Logging', 'format', 1), datefmt=config.get('Logging', 'datefmt', 1), level=config.get('Logging', 'level', 0))
 
-	def processXSL(self, sourcepath, xslpath, outputpath):
+	def processXSL(self, sourcepath, xslpath, outputpath, params=None):
 		sourceflag = "-s:" + sourcepath
 		xslflag = "-xsl:" + xslpath
 		outputflag = "-o:" + outputpath
-		subprocess.call(['java', '-jar', 'saxon9he.jar', sourceflag, xslflag, outputflag])
+		if params != None:
+			subprocess.call(['java', '-jar', 'saxon9he.jar', sourceflag, xslflag, outputflag, params])
+		else:
+			subprocess.call(['java', '-jar', 'saxon9he.jar', sourceflag, xslflag, outputflag])	
 	
-	
-	def outputHTML(self, ead):
+	def outputHTML(self, ead, params):
 		sourcepath = self.exportDestination + ead + ".xml"
 		xslpath = self.config.get('HTMLexport', 'htmlStylesheet')
 		outputpath = self.config.get('HTMLexport', 'htmlFilepath') + ead + ".html"
-		self.processXSL(sourcepath, xslpath, outputpath)
+		self.processXSL(sourcepath, xslpath, outputpath, params)
 		
 	def prettyprintEAD(self, eadID):
 		sourcepath = self.exportDestination + eadID
@@ -53,22 +55,25 @@ class ASExport():
 		outputpath = self.config.get('OACexport', 'oacFilepath') + eadID
 		self.processXSL(sourcepath, xslpath, outputpath)
 			
-	def processEAD(self, resourceID, ead, eadID, processOAC):
+	def processEAD(self, resourceID, ead, eadID, processOAC, no_daos):
 		print "--- Exporting ", eadID, " to ", self.exportDestination, " ---"
 		ts = datetime.datetime.now()
 		self.aspace.exportEAD(self.exportDestination, resourceID, eadID, self.exportUnpublished, self.exportDaos, self.number_cs, self.exportPdf)
 		tf = datetime.datetime.now()
 		te = tf - ts
+		html_params = None
+		if no_daos:
+			html_params = "outputDAOs='false'"
 		print "--- Export completed in: ", te, " ---"
 		print "--- Prettifying xml ---"
 		self.prettyprintEAD(eadID)
 		print "--- Processing html ---"
-		self.outputHTML(ead)
+		self.outputHTML(ead, html_params)
 		if processOAC:
 			print "--- Processing for OAC ---"
 			self.outputOAC(eadID)
 	
-	def exportAll(self, processOAC):
+	def exportAll(self, processOAC, nodao):
 		print "--- Exporting all finding aids ---"
 		ts = datetime.datetime.now()
 		resourceIDs = self.aspace.getAllResourceIDs().json()
@@ -78,7 +83,7 @@ class ASExport():
 				eadID=resource["ead_id"]
 				ead=eadID[:-4]
 				print ead
-				self.processEAD(str(r), ead, eadID, processOAC)
+				self.processEAD(str(r), ead, eadID, processOAC, nodao)
 			except KeyError as e:
 				print "Resource ", r, " does not contain an eadID"
 		tf = datetime.datetime.now()
@@ -96,6 +101,7 @@ def main():
 	argsparser.add_argument('eadid', help='EAD ID value (without the .xml extension)', nargs='*')
 	argsparser.add_argument('-o', '--oac', help='Output OAC compliant version of EAD', action='store_true')
 	argsparser.add_argument('-a', '--ar', help='Export all resource records from the selected repository', action='store_true')
+	argsparser.add_argument('-n', '--nodao', help='Export without digital object links', action='store_true')
 	args = argsparser.parse_args()
 	
 	try:
@@ -112,16 +118,16 @@ def main():
 		return
 	
 	if args.ar:
-		exporter.exportAll(args.oac)
+		exporter.exportAll(args.oac, args.nodao)
 	else:
 		for ead in args.eadid:
 			if ead.lower() == 'all':
-				exporter.exportAll(args.oac)
+				exporter.exportAll(args.oac, args.nodao)
 			else:
 				eadID = ead + '.xml'
 				resourceID = exporter.aspace.getResourceIDByEADID(eadID)
 				if resourceID != None:
-					exporter.processEAD(resourceID, ead, eadID, args.oac)
+					exporter.processEAD(resourceID, ead, eadID, args.oac, args.nodao)
 				else:
 					print "--- EAD: ", ead, " not found ---"
 		

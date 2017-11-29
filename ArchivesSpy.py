@@ -4,9 +4,9 @@ from requests_toolbelt import exceptions
 from requests_toolbelt.downloadutils import stream
 			
 class ASpace():
-	def __init__(self, url="http://localhost:8089", verifySSL=False, repository="2"):
+	def __init__(self, url="http://localhost:8089", verify_SSL=False, repository="2"):
 		self.url = url
-		self.verifySSL = verify_SSL
+		self.verify_SSL = verify_SSL
 		self.auth = None
 		self.session = None
 		self.headers = None
@@ -54,7 +54,6 @@ class ASpace():
 	def get_repositories(self):
 		return self.get_request(self.url+'/repositories')
 	
-	#Update to be more generic, pass repository number or name to set
 	def set_repository(self, repository_number):
 		self.repository_uri = "/repositories/" + str(repository)
 		self.repository_url = self.url + self.repositoryUri
@@ -89,7 +88,7 @@ class ASpace():
 	def get_all_resource_IDs(self):
 		return self.get_request(self.repository_url+'/resources?all_ids=true')
 		
-	def getResourceByID(self, resource_ID):
+	def get_resource_by_ID(self, resource_ID):
 		return self.get_request(self.repository_url+'/resources/'+str(resource_ID)) 
 		
 	def get_resource_ID_by_EAD_ID(self, ead_ID):
@@ -146,7 +145,7 @@ class ASpace():
 		try:
 		    with open(os.path.join(destination, ead_ID), 'wb') as fd:
 		    	logging.info("%s export begin", ead_ID)
-		        ead = self.get_request(self.repository_url +'/resource_descriptions/'+str(resource_ID)+'.xml?include_unpublished={exportUnpublished}&include_daos={exportDaos}&numbered_cs={number_cs}&print_pdf={exportPdf}'.format(exportUnpublished=export_unpublished, exportDaos=export_daos, number_cs=number_cs, exportPdf=export_pdf), headers=self.headers, verify=self.verifySSL, stream=True)
+		        ead = requests.get(self.repository_url +'/resource_descriptions/'+str(resource_ID)+'.xml?include_unpublished={exportUnpublished}&include_daos={exportDaos}&numbered_cs={number_cs}&print_pdf={exportPdf}'.format(exportUnpublished=export_unpublished, exportDaos=export_daos, number_cs=number_cs, exportPdf=export_pdf), headers=self.headers, verify=self.verifySSL, stream=True)
 		        filename = stream.stream_response_to_file(ead, path=fd)
 		        fd.close
 		        logging.info('%s exported to %s', ead_ID, os.path.join(destination,resource_ID))

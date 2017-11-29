@@ -4,20 +4,38 @@ from requests_toolbelt import exceptions
 from requests_toolbelt.downloadutils import stream
 			
 class ASpace():
-	def __init__(self, url="http://localhost:8089", verifySSL=False, repository="2"):
+	def __init__(self, url="http://localhost:8089", verify_SSL=False, repository="2"):
 		self.url = url
-		self.verifySSL = verifySSL
-		self.auth = ''
-		self.session = ''
-		self.headers = ''
-		self.repositoryUri = "/repositories/" + repository
-		self.repositoryUrl = self.url + self.repositoryUri
-		self.py3 = sys.version_info[0] > 2 #creates boolean value to test that Python major version > 2
+		self.verify_SSL = verify_SSL
+		self.auth = None
+		self.session = None
+		self.headers = None
+		self.repository_uri = "/repositories/" + repository
+		self.repository_url = self.url + self.repository_uri
+				
+	def post_request(self, url, request_data=None):
+		if self.headers is not None:
+			if request_data is not None:
+				return requests.post(url, data=request_data, headers=self.headers, verify=self.verify_SSL)
+			else:
+				return requests.post(url, headers=self.headers, verify=self.verify_SSL)
+		else:
+			if request_data is not None:
+				return requests.post(url, data=request_data, verify=self.verify_SSL)
+			else:
+				return requests.post(url, verify=self.verify_SSL)
+	
+	def get_request(self, url, request_paramaters=None):
+		if request_paramaters is not None:
+			return requests.get(url, params=request_parameters, headers=self.headers, verify=self.verify_SSL)
+		else:
+			return requests.get(url, headers=self.headers, verify=self.verify_SSL)
 	
 	def init_session(self, username="admin", password="admin"):
 		try:
-			safe_password = urllib.quote(password)
-			response = requests.post(self.url+'/users/'+username+'/login?password='+safe_password, verify=self.verifySSL)
+			escaped_password = urllib.quote(password)
+			response = self.post_request(self.url+'/users/'+username+'/login?password='+escaped_password)
+			#response = requests.post(self.url+'/users/'+username+'/login?password='+safe_password, verify=self.verifySSL)
 			if response.status_code == 200:
 				self.auth = response.json()
 				self.session = self.auth["session"]
@@ -31,121 +49,114 @@ class ASpace():
 		except SystemExit:
 			raise	
 		except:
-			print "Unexpected error:", sys.exc_info()[0]			
+			print "Unexpected error:", sys.exc_info()[0]
+			raise			
 			
-	def getRepositories(self):
-		return requests.get(self.url + '/repositories', headers=self.headers, verify=self.verifySSL)
+	def get_repositories(self):
+		return self.get_request(self.url+'/repositories')
 	
-	#Update to be more generic, pass repository number or name to set
-	def setRepository(self):
-		repositories = requests.get(self.url + '/repositories', headers=self.headers, verify=self.verifySSL).json()
-		print '\nPlease choose a repository:\n'
-		for repository in repositories:
-			print repository['repo_code']
-		if self.py3:
-			repo = input("\nRepository: ")
-		else:
-			repo = raw_input("\nRepository: ")
-		for repository in repositories:
-			if repo == repository['repo_code']:
-				self.repositoryUri = repository['uri']
-		self.setRepositoryUrl()
-		print '\nUsing: ' + self.repositoryUrl
+	def set_repository(self, repository_number):
+		self.repository_uri = "/repositories/" + str(repository)
+		self.repository_url = self.url + self.repositoryUri
 		
-	def setRepositoryUrl(self):
+	def set_repository_url(self):
 		self.repositoryUrl = self.url + self.repositoryUri
 		
-	def searchRepository(self, search):
-		return requests.get(self.repositoryUrl + '/search?page=1&q=' + search, headers=self.headers, verify=self.verifySSL)
+	def search_repository(self, search):
+		return self.get_request(self.repositoryUrl+'/search?page=1&q='+search)
 		
-	def getAgentCorpByID(self, agentID):
-		return requests.get(self.url + '/agents/corporate_entities/' + agentID, headers=self.headers, verify=self.verifySSL)
+	def get_agent_corp_by_ID(self, agent_ID):
+		return self.get_request(self.url+'/agents/corporate_entities/'+agent_ID)
 		
-	def getAgentPersonByID(self, agentID):
-		return requests.get(self.url + '/agents/people/' + agentID, headers=self.headers, verify=self.verifySSL)
+	def get_agent_person_by_ID(self, agent_ID):
+		return self.get_request(self.url+'/agents/people/'+agentID)
 		
-	def getAllArchivalObjectIDs(self):
-		return requests.post(self.repositoryUrl + '/archival_objects?all_ids=true', headers=self.headers, verify=self.verifySSL)
+	def get_all_archival_object_IDs(self):
+		return self.get_request(self.repository_url+'/archival_objects?all_ids=true')
 	
-	def getArchivalObjectByRefID(self, refID):
-		parameters = {"ref_id[]":refID}
-		archival_object_lookup = requests.get(self.repositoryUrl + '/find_by_id/archival_objects', params=parameters, headers=self.headers, verify=self.verifySSL).json()
+	def get_archival_object_by_ref_ID(self, ref_ID):
+		parameters = {"ref_id[]":ref_ID}
+		archival_object_lookup = self.get_request(self.repository_url+'/find_by_id/archival_objects', parameters).json()
 		archival_object_uri = archival_object_lookup['archival_objects'][0]['ref']
-		return requests.get(self.url+archival_object_uri, headers=self.headers, verify=self.verifySSL)
+		return self.get_request(self.url+archival_object_uri)
 		
-	def updateArchivalObject(self, archivalObjectUri, jsonData):
-		return requests.post(self.url + archivalObjectUri,headers=self.headers, data=jsonData, verify=self.verifySSL)
+	def update_archival_object(self, archival_object_uri, json_data):
+		return self.post_request(self.url + archival_object_uri, data=json_data)
 		
-	def updateResourceRecord(self, resourceUri, jsonData):
-		return requests.post(self.url + resourceUri, headers=self.headers, data=jsonData, verify=self.verifySSL)
+	def update_resource_record(self, resource_uri, json_data):
+		return self.post_request(self.url+resource_uri, json_data)
 	
-	def getAllResourceIDs(self):
-		return requests.get(self.repositoryUrl + '/resources?all_ids=true', headers=self.headers, verify=self.verifySSL)
+	def get_all_resource_IDs(self):
+		return self.get_request(self.repository_url+'/resources?all_ids=true')
 		
-	def getResourceByID(self, resourceID):
-		return requests.get(self.repositoryUrl + '/resources/' + str(resourceID), headers=self.headers, verify=self.verifySSL) 
+	def get_resource_by_ID(self, resource_ID):
+		return self.get_request(self.repository_url+'/resources/'+str(resource_ID)) 
 		
-	def getResourceIDByEADID(self, eadID):
-		resourceIDs = self.getAllResourceIDs().json()
+	def get_resource_ID_by_EAD_ID(self, ead_ID):
+		resource_IDs = self.get_all_resource_IDs().json()
 		logging.info('--- Getting a list of all resources ---')
-		for r in resourceIDs:
-			resource = self.getResourceByID(str(r)).json()
+		for r in resource_IDs:
+			resource = self.get_resource_by_ID(str(r)).json()
 			try:
-				if eadID in resource["ead_id"]:
+				if ead_ID in resource["ead_id"]:
 					return str(r)
 			except KeyError as e:
 				logging.warning("Resource %s does not contain an eadID", str(r))
+			except:
+				logging.info("")
+				raise
 		return None
 		
-	def getResourceIDbyIdentifiers(self, id_0=None, id_1=None, id_2=None, id_3=None):
-		resourceIDs = self.getAllResourceIDs().json()
+	def get_resource_ID_by_identifiers(self, id_0=None, id_1=None, id_2=None, id_3=None):
+		resource_IDs = self.get_all_resource_IDs().json()
 		logging.info('--- Getting a list of all resources ---')
 		for r in resourceIDs:
-			resource = self.getResourceByID(str(r)).json()
+			resource = self.get_resource_by_ID(str(r)).json()
 			print "id_0: ", resource["id_0"], " id_1: ", resource["id_1"], " id_2: ", resource["id_2"], " id_3: ", resource["id_3"]
 		
 	#Creates a digital object in ASpace from passed JSON
-	def createDigitalObject(self, dig_obj_json):
+	def create_digital_object(self, dig_obj_json):
 		#dig_obj_data = json.dumps(dig_obj_json)
-		return requests.post(self.repositoryUrl+'/digital_objects', headers=self.headers, data=dig_obj_json, verify=self.verifySSL)
+		return self.post_request(self.repositoryUrl+'/digital_objects', dig_obj_json)
 		
-	def getAllEvents(self):
-		parameters = {"all_ids":True}
-		return requests.get(self.repositoryUrl+'/events?all_ids=true', headers=self.headers, verify=self.verifySSL)
+	def get_all_events(self):
+		return self.get_request(self.repositoryUrl+'/events?all_ids=true')
 	
-	def getEventByID(self, eventID):
-		return requests.get(self.repositoryUrl+'/events/'+str(eventID), headers=self.headers, verify=self.verifySSL)
+	def get_event_by_ID(self, event_ID):
+		return self.get_request(self.repositoryUrl+'/events/'+str(event_ID))
 	
-	def createEvent(self, eventJson):
-		return requests.post(self.repositoryUrl+'/events', data=eventJson, headers=self.headers, verify=self.verifySSL)
+	def create_event(self, event_json):
+		return self.post_request(self.repositoryUrl+'/events', event_json)
 		
-	def updateEvent(self, eventURI, eventJson):
-		return requests.post(self.url+eventURI, data=eventJson, headers=self.headers, verify=self.verifySSL)
+	def update_event(self, event_URI, event_json):
+		return self.post_request(self.url+event_URI, event_json)
 		
-	def getLinkedRecord(self, linkref):
-		return requests.get(self.url+linkref, headers=self.headers, verify=self.verifySSL)
+	def get_linked_record(self, link_ref):
+		return self.get_request(self.url+link_ref)
 		
-	def getAllAccessions(self):
-		return requests.get(self.repositoryUrl+'/accessions?all_ids=true', headers=self.headers, verify=self.verifySSL)
+	def get_all_accessions(self):
+		return self.get_request(self.repository_url+'/accessions?all_ids=true')
 		
-	def getAccessionRecord(self, accId):
-		return requests.get(self.repositoryUrl+'/accessions/'+ str(accId), headers=self.headers, verify=self.verifySSL)
+	def get_accession_record(self, acc_ID):
+		return self.get_request(self.repository_url+'/accessions/'+ str(acc_ID))
 		
-	def updateAccessionRecord(self, jsonData, accUri):
-		return requests.post(self.url + accUri,headers=self.headers, data=jsonData, verify=self.verifySSL)
+	def update_accession_record(self, json_data, acc_uri):
+		return self.post_request(self.url+acc_uri, json_data)
 		
-	def exportEAD(self, destination, resourceID, eadID, exportUnpublished, exportDaos, number_cs, exportPdf):
+	def export_EAD(self, destination, resource_ID, ead_ID, export_unpublished, export_daos, number_cs, export_pdf):
 		if not os.path.exists(destination):
 		    os.makedirs(destination)
 		try:
-		    with open(os.path.join(destination, eadID), 'wb') as fd:
-		    	logging.info("%s export begin", eadID)
-		        ead = requests.get(self.repositoryUrl +'/resource_descriptions/'+str(resourceID)+'.xml?include_unpublished={exportUnpublished}&include_daos={exportDaos}&numbered_cs={number_cs}&print_pdf={exportPdf}'.format(exportUnpublished=exportUnpublished, exportDaos=exportDaos, number_cs=number_cs, exportPdf=exportPdf), headers=self.headers, verify=self.verifySSL, stream=True)
+		    with open(os.path.join(destination, ead_ID), 'wb') as fd:
+		    	logging.info("%s export begin", ead_ID)
+		        ead = requests.get(self.repository_url +'/resource_descriptions/'+str(resource_ID)+'.xml?include_unpublished={exportUnpublished}&include_daos={exportDaos}&numbered_cs={number_cs}&print_pdf={exportPdf}'.format(exportUnpublished=export_unpublished, exportDaos=export_daos, number_cs=number_cs, exportPdf=export_pdf), headers=self.headers, verify=self.verify_SSL, stream=True)
 		        filename = stream.stream_response_to_file(ead, path=fd)
 		        fd.close
-		        logging.info('%s exported to %s', eadID, os.path.join(destination,resourceID))
+		        logging.info('%s exported to %s', ead_ID, os.path.join(destination,resource_ID))
 		except exceptions.StreamingError as e:
 		    logging.warning(e.message)
+		except:
+			raise
 		    
 		
 	def printJson(self, jsonData):

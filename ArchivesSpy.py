@@ -11,19 +11,19 @@ class ASpace():
 		self.session = None
 		self.headers = None
 		self.repository_uri = "/repositories/" + repository
-		self.repository_url = self.url + self.repositoryUri
+		self.repository_url = self.url + self.repository_uri
 				
 	def post_request(self, url, request_data=None):
 		if self.headers is not None:
 			if request_data is not None:
-				return request.post(url, data=request_data, headers=self.headers, verify=self.verify_SSL)
+				return requests.post(url, data=request_data, headers=self.headers, verify=self.verify_SSL)
 			else:
-				return request.post(url, headers=self.headers, verify=self.verify_SSL)
+				return requests.post(url, headers=self.headers, verify=self.verify_SSL)
 		else:
 			if request_data is not None:
-				return request.post(url, data=request_data, verify=self.verify_SSL)
+				return requests.post(url, data=request_data, verify=self.verify_SSL)
 			else:
-				return request.post(url, verify=self.verify_SSL)
+				return requests.post(url, verify=self.verify_SSL)
 	
 	def get_request(self, url, request_paramaters=None):
 		if request_paramaters is not None:
@@ -49,7 +49,8 @@ class ASpace():
 		except SystemExit:
 			raise	
 		except:
-			print "Unexpected error:", sys.exc_info()[0]			
+			print "Unexpected error:", sys.exc_info()[0]
+			raise			
 			
 	def get_repositories(self):
 		return self.get_request(self.url+'/repositories')
@@ -101,6 +102,9 @@ class ASpace():
 					return str(r)
 			except KeyError as e:
 				logging.warning("Resource %s does not contain an eadID", str(r))
+			except:
+				logging.info("")
+				raise
 		return None
 		
 	def get_resource_ID_by_identifiers(self, id_0=None, id_1=None, id_2=None, id_3=None):
@@ -145,12 +149,14 @@ class ASpace():
 		try:
 		    with open(os.path.join(destination, ead_ID), 'wb') as fd:
 		    	logging.info("%s export begin", ead_ID)
-		        ead = requests.get(self.repository_url +'/resource_descriptions/'+str(resource_ID)+'.xml?include_unpublished={exportUnpublished}&include_daos={exportDaos}&numbered_cs={number_cs}&print_pdf={exportPdf}'.format(exportUnpublished=export_unpublished, exportDaos=export_daos, number_cs=number_cs, exportPdf=export_pdf), headers=self.headers, verify=self.verifySSL, stream=True)
+		        ead = requests.get(self.repository_url +'/resource_descriptions/'+str(resource_ID)+'.xml?include_unpublished={exportUnpublished}&include_daos={exportDaos}&numbered_cs={number_cs}&print_pdf={exportPdf}'.format(exportUnpublished=export_unpublished, exportDaos=export_daos, number_cs=number_cs, exportPdf=export_pdf), headers=self.headers, verify=self.verify_SSL, stream=True)
 		        filename = stream.stream_response_to_file(ead, path=fd)
 		        fd.close
 		        logging.info('%s exported to %s', ead_ID, os.path.join(destination,resource_ID))
 		except exceptions.StreamingError as e:
 		    logging.warning(e.message)
+		except:
+			raise
 		    
 		
 	def printJson(self, jsonData):

@@ -46,13 +46,13 @@ class ASExport():
 	def prettyprint_EAD(self, ead_ID):
 		sourcepath = self.export_destination + ead_ID
 		xslpath = self.config.get('PrettyPrintExport', 'ppStylesheet')
-		outputpath = self.config.get('PrettyPrintExport', 'ppFilepath') + eadID
+		outputpath = self.config.get('PrettyPrintExport', 'ppFilepath') + ead_ID
 		self.process_XSL(sourcepath, xslpath, outputpath)
 			
 	def output_OAC(self, ead_ID):
 		sourcepath = self.export_destination + ead_ID
 		xslpath = self.config.get('OACexport', 'oacStylesheet')
-		outputpath = self.config.get('OACexport', 'oacFilepath') + eadID
+		outputpath = self.config.get('OACexport', 'oacFilepath') + ead_ID
 		self.process_XSL(sourcepath, xslpath, outputpath)
 			
 	def process_EAD(self, resource_ID, ead, ead_ID, process_OAC, no_daos):
@@ -66,12 +66,12 @@ class ASExport():
 			html_params = "outputDAOs='false'"
 		print "--- Export completed in: ", te, " ---"
 		print "--- Prettifying xml ---"
-		self.prettyprint_EAD(eadID)
+		self.prettyprint_EAD(ead_ID)
 		print "--- Processing html ---"
-		self.outputHTML(ead, html_params)
-		if processOAC:
+		self.output_HTML(ead, html_params)
+		if process_OAC:
 			print "--- Processing for OAC ---"
-			self.outputOAC(eadID)
+			self.output_OAC(ead_ID)
 	
 	def export_all(self, process_OAC, no_dao):
 		print "--- Exporting all finding aids ---"
@@ -121,15 +121,22 @@ def main():
 		exporter.export_all(args.oac, args.nodao)
 	else:
 		for ead in args.eadid:
-			if ead.lower() == 'all':
-				exporter.exportAll(args.oac, args.nodao)
-			else:
-				ead_ID = ead + '.xml'
-				resource_ID = exporter.aspace.get_resource_ID_by_EAD_ID(ead_ID)
-				if resourceID != None:
-					exporter.process_EAD(resourceID, ead, eadID, args.oac, args.nodao)
+			try:
+				if ead.lower() == 'all':
+					exporter.export_all(args.oac, args.nodao)
 				else:
-					print "--- EAD: ", ead, " not found ---"
+					ead_ID = ead + '.xml'
+					print ead_ID
+					resource_ID = exporter.aspace.get_resource_ID_by_EAD_ID(ead_ID)
+					print resource_ID
+					if resource_ID != None:
+						exporter.process_EAD(resource_ID, ead, ead_ID, args.oac, args.nodao)
+					else:
+						print "--- EAD: ", ead, " not found ---"
+			except NameError as e:
+				print e
+			except:
+				print "Unexpected error:", sys.exc_info()[0]
 		
 	
 if __name__ == '__main__':
